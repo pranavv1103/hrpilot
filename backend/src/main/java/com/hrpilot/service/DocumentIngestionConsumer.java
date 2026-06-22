@@ -76,10 +76,16 @@ public class DocumentIngestionConsumer {
             documentRepository.save(doc);
             log.info("Document {} indexed with {} chunks", event.documentId(), chunks.size());
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            // Catch Throwable (not just Exception) so OutOfMemoryError also marks the doc FAILED
+            // instead of causing Kafka to retry the same message in an infinite loop.
             log.error("Failed to process document {}: {}", event.documentId(), e.getMessage(), e);
-            doc.setStatus(DocumentStatus.FAILED);
-            documentRepository.save(doc);
+            try {
+                doc.setStatus(DocumentStatus.FAILED);
+                documentRepository.save(doc);
+            } catch (Exception saveEx) {
+                log.error("Could not persist FAILED status for doc {}: {}", event.documentId(), saveEx.getMessage());
+            }
         }
     }
 
