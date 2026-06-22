@@ -9,12 +9,12 @@ import com.hrpilot.repository.PolicyDocumentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -85,7 +85,7 @@ public class DocumentIngestionConsumer {
 
     private List<DocumentChunk> extractChunks(String filePath, java.util.UUID documentId) throws Exception {
         List<DocumentChunk> chunks = new ArrayList<>();
-        try (PDDocument pdf = Loader.loadPDF(new File(filePath))) {
+        try (PDDocument pdf = Loader.loadPDF(new RandomAccessReadBufferedFile(filePath))) {
             PDFTextStripper stripper = new PDFTextStripper();
             int totalPages = pdf.getNumberOfPages();
             int chunkIdx = 0;
