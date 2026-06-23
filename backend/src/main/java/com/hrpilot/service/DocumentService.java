@@ -36,6 +36,7 @@ public class DocumentService {
 
     private final PolicyDocumentRepository documentRepository;
     private final KafkaTemplate<String, DocumentUploadedEvent> kafkaTemplate;
+    private final DocumentIngestionConsumer ingestionConsumer;
 
     public PolicyDocument uploadDocument(MultipartFile file, UUID companyId, UUID uploadedBy) throws IOException {
         // Resolve upload directory to an absolute path so it's consistent across contexts
@@ -56,14 +57,17 @@ public class DocumentService {
         doc.setStatus(DocumentStatus.PENDING);
         doc = documentRepository.save(doc);
 
-        // Publish Kafka event for async ingestion (best-effort — upload succeeds even if Kafka is unavailable)
+        // Publish Kafka event; if Kafka is unavailable, fall back to direct async processing
         try {
             DocumentUploadedEvent event = new DocumentUploadedEvent(
                     doc.getId(), filePath.toAbsolutePath().toString(), companyId, uploadedBy);
             kafkaTemplate.send("document.uploaded", doc.getId().toString(), event);
             log.info("Published document.uploaded event for doc {}", doc.getId());
         } catch (Exception e) {
-            log.warn("Kafka unavailable — document {} saved but ingestion event not published: {}", doc.getId(), e.getMessage());
+            log.warn("Kafka unavailable — processing doc {} directly: {}", doc.getId(), e.getMessage());
+            DocumentUploadedEvent event = new DocumentUploadedEvent(
+                    doc.getId(), filePath.toAbsolutePath().toString(), companyId, uploadedBy);
+            ingestionConsumer.processAsync(event);
         }
 
         return doc;

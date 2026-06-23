@@ -13,6 +13,7 @@ import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -44,6 +45,14 @@ public class DocumentIngestionConsumer {
     private final PolicyDocumentRepository documentRepository;
     private final DocumentChunkRepository chunkRepository;
     private final EmbeddingService embeddingService;
+
+    /**
+     * Called directly (async) when Kafka is unavailable — bypasses the message queue.
+     */
+    @Async
+    public void processAsync(DocumentUploadedEvent event) {
+        consume(event);
+    }
 
     @KafkaListener(topics = "document.uploaded", groupId = "hrpilot-group",
             containerFactory = "kafkaListenerContainerFactory")
